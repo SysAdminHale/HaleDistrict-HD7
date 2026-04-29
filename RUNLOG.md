@@ -168,3 +168,65 @@
   - Build HD7-DC01 using Default Switch
   - Begin Phase 1: Core Domain (DC01 → ADM01 → TEACH01)
   - Validate domain creation, DNS, and authentication before introducing any additional infrastructure
+
+### 2026-04-29 — HD7 Phase 1 Start: DC01 Build + Domain Promotion (SUCCESS)
+
+- Began HD7 build from a fully cleaned Hyper-V environment (no prior VMs, only Default Switch present)
+- Reinforced HD7 design philosophy:
+  - Collapse variables early
+  - Prefer simplicity over speed
+  - Avoid premature infrastructure (no RT01, no FS01)
+  - Validate before layering additional services
+
+- Decision point: ISO vs Golden Image
+  - Chose fresh Windows Server ISO instead of GOLD image
+  - Rationale: eliminate hidden variables (network config, SID history, roles)
+  - Establish clean, known baseline for HD7
+
+- Created VM: HD7-DC01
+  - Generation 2
+  - 4GB RAM (static)
+  - Default Switch networking (DHCP)
+  - New VHDX (no differencing disk)
+  - Automatic checkpoints disabled (critical for stability)
+  - Adjusted CPU from 8 → 2 vCPUs post-install to reduce unnecessary overhead
+
+- Installed Windows Server (Desktop Experience)
+  - Renamed system to HD7-DC01
+  - Verified 64-bit PowerShell environment ([Environment]::Is64BitProcess = True)
+  - Validated network connectivity via DHCP (172.25.x.x range)
+  - Confirmed internet access (Test-NetConnection successful)
+
+- Installed AD DS role via PowerShell:
+  - Install-WindowsFeature AD-Domain-Services -IncludeManagementTools
+  - Verified successful installation (Get-WindowsFeature)
+
+- Promoted HD7-DC01 to Domain Controller:
+  - Created new forest: haledistrict.local
+  - NetBIOS name: HALEDISTRICT
+  - Installed DNS as part of promotion
+  - Acknowledged expected warnings:
+    - No static IP (intentional at this stage)
+    - DNS delegation not created (normal in isolated lab)
+  - Promotion completed successfully with automatic reboot
+
+- Post-promotion validation:
+  - whoami → haledistrict\administrator (confirmed domain context)
+  - Hostname → HD7-DC01
+  - DNS servers correctly set to loopback (::1 and 127.0.0.1)
+  - DHCP still enabled (intentional; static conversion deferred)
+
+- Key HD7 workflow reinforcement:
+  - Validate → THEN build (replacing HD6 “build then troubleshoot” pattern)
+  - Delay static IP assignment until AFTER AD + DNS are operational
+  - Avoid introducing unnecessary variables early (networking, routing, multi-server dependencies)
+
+- Status at pause:
+  - Fully functional Domain Controller (AD DS + DNS)
+  - Clean, stable core domain established
+  - Ready next step: convert DC01 to static IP and validate DNS resolution
+
+- Overall assessment:
+  - Cleanest DC build to date
+  - No troubleshooting loops encountered
+  - HD7 approach validated as faster and more reliable than HD6 methodology
