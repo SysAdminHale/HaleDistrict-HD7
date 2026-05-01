@@ -230,3 +230,56 @@
   - Cleanest DC build to date
   - No troubleshooting loops encountered
   - HD7 approach validated as faster and more reliable than HD6 methodology
+
+### 2026-05-01 – HD7 Build Session (Morning)
+
+- Resumed HD7 build with HD7-DC01 online and functioning
+- Identified DNS inconsistency caused by stale A record (172.25.45.238) from previous network configuration
+- Removed stale DNS records from haledistrict.local zone
+- Flushed DNS cache and re-registered DNS records
+- Verified correct DC IP (172.19.45.107) as sole authoritative record
+- Confirmed successful name resolution via nslookup
+- Executed dcdiag and confirmed overall health with one expected DNS warning (forwarder/root hint behavior)
+
+- Began workstation deployment: HD7-TEACH01
+- Created VM using GOLD-WIN11-BUILD image
+- Initially attached GOLD image directly (identified as incorrect approach)
+- Recovered by:
+  - Removing GOLD disk from VM
+  - Creating proper differencing disk (HD7-TEACH01.vhdx)
+  - Reattaching child disk to VM
+
+- Encountered UEFI boot failure:
+  - "No operating system loaded"
+  - PXE boot attempts observed
+- Root cause: Boot order lost after disk change (Firmware configuration issue)
+
+- Resolved by:
+  - Navigating to VM Settings → Firmware
+  - Moving Hard Drive to top of boot order
+  - Confirming Secure Boot enabled (Microsoft Windows template)
+
+- Successfully booted into Windows 11 OOBE environment
+- Confirmed system operational (PowerShell accessible, desktop loaded)
+
+### Key Lessons / Reinforcements
+
+- Golden images must NEVER be directly attached to running VMs
+- Differencing disks are required for all child systems
+- UEFI boot order must be manually corrected after disk changes
+- DNS hygiene is critical—stale records can silently break domain functionality
+- Recovery process is part of the build—not a failure
+
+### Current State
+
+- HD7-DC01: Healthy, DNS functional
+- HD7-TEACH01: Successfully built and booted (ready for OOBE + domain join)
+
+### Next Steps (Afternoon)
+
+- Complete OOBE for TEACH01
+- Rename machine to HD7-TEACH01 (if not already set)
+- Configure DNS to point to DC01
+- Join domain (haledistrict.local)
+- Validate domain connectivity (ping, nslookup, gpresult)
+- Begin STUD01 build (repeat clean process)
