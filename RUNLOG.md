@@ -283,3 +283,102 @@
 - Join domain (haledistrict.local)
 - Validate domain connectivity (ping, nslookup, gpresult)
 - Begin STUD01 build (repeat clean process)
+
+### 2026-05-01 — HD7 Phase 1 (Workstation + Loopback GPO SUCCESS)
+
+- Restarted HD7 build with simplified architecture (no RT01 / FS01 for now; Default Switch only)
+- Created HD7-TEACH01 using differencing disk from GOLD image
+- Identified and resolved issue from accidental GOLD boot:
+  - Deleted contaminated differencing disk
+  - Recreated clean child disk
+  - Preserved GOLD integrity (critical lesson reinforced: never boot GOLD)
+- Encountered boot failure (“No OS loaded / PXE boot”)
+  - Root cause: firmware / Secure Boot mismatch
+  - Fix: corrected firmware boot configuration → system booted successfully
+- Completed initial Windows boot and verified local admin access
+
+### Networking + Domain Join
+
+- Identified NIC alias mismatch (Ethernet vs Ethernet 2)
+- Resolved DNS configuration:
+  - Set DNS server to DC01 (172.19.45.107)
+  - Required elevated PowerShell (fixed permission/CIM error)
+- Verified connectivity:
+  - ipconfig /all confirmed correct DNS
+  - nslookup behavior understood (timeout nuance discussed)
+- Successfully joined haledistrict.local
+- Validated domain trust:
+  - whoami → haledistrict\administrator
+  - $env:LOGONSERVER → \\HD7-DC01
+  - nltest /dsgetdc successful
+
+### OU Structure + Computer Placement
+
+- Created / validated OU structure:
+  - HD7-Workstations
+    - Teachers
+    - Students
+- Moved HD7-TEACH01 into:
+  - OU=Teachers,OU=HD7-Workstations
+- Verified placement via ADUC and gpresult
+
+### Loopback GPO Deployment (CORE MILESTONE)
+
+- Created GPO: HD7-GPO-Teachers-Baseline
+- Linked to: OU=Teachers
+- Enabled:
+  - Loopback Processing Mode = Replace
+- Configured User Policy:
+  - Prohibit access to Control Panel and PC settings
+
+### Validation (CRITICAL SUCCESS)
+
+- Ran:
+  gpupdate /force
+  gpresult /r
+- Confirmed:
+  - GPO applied under USER SETTINGS
+  - Source = HD7-DC01
+- Observed behavior:
+  - Control Panel access blocked with restriction message
+
+### Key Breakthrough (Conceptual)
+
+- Successfully demonstrated:
+  - Loopback (Replace) forces USER policy based on COMPUTER OU
+- Validated scenario:
+  - Domain Admin user (normally unrestricted)
+  - Logged into Teacher workstation
+  - Still received restricted experience
+
+### Core Principle Learned
+
+- WITHOUT loopback → user OU controls user experience
+- WITH loopback (Replace) → computer OU controls user experience
+
+### HD7 Architectural Progress
+
+- Established foundation for:
+  - Classroom / lab-style workstation control
+  - Role-based environments (Teachers vs Students)
+  - Future pilot rings and layered GPO strategy
+- Confirmed ability to:
+  - Build clean VMs from GOLD safely
+  - Diagnose boot + firmware issues
+  - Configure DNS and domain join correctly
+  - Deploy and validate GPOs with precision
+
+### Next Steps (Next Session)
+
+- Expand Teacher GPO:
+  - Add additional user restrictions (Run menu, CMD, etc.)
+- Create Student workstation GPO (separate experience)
+- Begin pilot ring strategy (HD7 refinement over HD6)
+- Introduce drive mapping + file services later in build (intentionally deferred)
+
+### Reflection
+
+- Multiple early friction points (disk contamination, boot failure, DNS errors) resolved methodically
+- Strong validation-first workflow maintained throughout
+- First true end-to-end success of HD7:
+  - VM → Domain → OU → GPO → Enforcement → Validation
