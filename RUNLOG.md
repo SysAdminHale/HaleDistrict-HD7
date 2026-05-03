@@ -418,7 +418,7 @@ Root Cause:
 
 ## DECISION (OPTION B)
 
-Move to a **fully controlled internal network model**:
+Move to a fully controlled internal network model:
 
 - Use Hyper-V Internal Switch (HD7-Internal)
 - Assign static IPs
@@ -443,11 +443,157 @@ Move to a **fully controlled internal network model**:
 
 Configured static IP:
 
-```powershell
-New-NetIPAddress -InterfaceAlias "Ethernet" `
-  -IPAddress 10.0.0.10 `
-  -PrefixLength 24
+New-NetIPAddress -InterfaceAlias "Ethernet" `  -IPAddress 10.0.0.10`
+-PrefixLength 24
 
 Set-DnsClientServerAddress -InterfaceAlias "Ethernet" `
-  -ServerAddresses 127.0.0.1
-```
+-ServerAddresses 127.0.0.1
+
+Result:
+
+- DC01 now authoritative DNS + domain endpoint
+- No external dependency
+
+---
+
+### 3. TEACH01 Network Configuration (Domain Client)
+
+Configured static IP:
+
+New-NetIPAddress -InterfaceAlias "Ethernet 2" `  -IPAddress 10.0.0.50`
+-PrefixLength 24 `
+-DefaultGateway 10.0.0.1
+
+Configured DNS:
+
+Set-DnsClientServerAddress -InterfaceAlias "Ethernet 2" `
+-ServerAddresses 10.0.0.10
+
+---
+
+### 4. Connectivity Validation
+
+Ping Test:
+ping 10.0.0.10
+Result: SUCCESS (0% loss)
+
+Domain Controller Discovery:
+nltest /dsgetdc:haledistrict.local
+Result: SUCCESS
+
+- DC located: \\HD7-DC01.haledistrict.local
+- Flags confirm full DC functionality (PDC, GC, DNS, etc.)
+
+Group Policy Refresh:
+gpupdate /force
+Result:
+
+- Computer Policy: SUCCESS
+- User Policy: SUCCESS
+
+---
+
+## GPO VALIDATION (PREVIOUS + CURRENT)
+
+Confirmed Working:
+
+- Prohibit Control Panel → SUCCESS
+- Remove Run Menu → ENABLED
+- Prevent CMD → ENABLED
+
+Behavior Observed:
+
+- Restrictions apply correctly to scoped user
+- Admin context bypass behavior understood and expected
+- Logoff/logon cycle confirmed as required trigger for user policies
+
+---
+
+## KEY LEARNINGS
+
+1. DNS IS EVERYTHING
+   If DNS ≠ DC → Active Directory breaks
+
+- Authentication fails
+- GPO fails
+- Domain discovery fails
+
+2. DEFAULT SWITCH = UNCONTROLLED ENVIRONMENT
+
+- DHCP introduces randomness
+- NAT obscures topology
+- Not suitable for deterministic lab builds
+
+3. STATIC INTERNAL NETWORK = STABILITY
+
+- Predictable IP space (10.0.0.0/24)
+- Clear troubleshooting
+- Mirrors real enterprise design
+
+4. SUCCESSFUL DOMAIN TRIAD
+   Working AD requires:
+
+- Network connectivity ✅
+- DNS resolution ✅
+- Domain trust ✅
+
+All three now confirmed functional
+
+---
+
+## CURRENT STATE (END OF SESSION)
+
+Infrastructure:
+
+- DC01: 10.0.0.10 (DNS + AD)
+- TEACH01: 10.0.0.50 (domain joined)
+- Network: HD7-Internal (isolated, controlled)
+
+Validation Status:
+
+- Ping: PASS
+- DNS: PASS
+- nltest: PASS
+- gpupdate: PASS
+- GPO enforcement: PASS
+
+---
+
+## KNOWN GAPS / FUTURE CONSIDERATIONS
+
+- Default Gateway (10.0.0.1) not yet implemented (no router present)
+- No internet access (intentional at this phase)
+- No admin workstation (ADM01) yet
+- No file services (FS01) yet
+- No routing/NAT layer (RT01 deferred by design)
+
+---
+
+## NEXT STEPS (AFTERNOON SESSION OPTIONS)
+
+1. Build ADM01 (recommended)
+   - Introduce proper admin workstation
+   - Install RSAT tools
+   - Begin remote management model
+
+2. Expand GPO Baseline
+   - Continue teacher restrictions
+   - Introduce student OU + differentiation
+
+3. Establish Validation Framework
+   - Formalize repeatable health checks
+   - Begin HD7 HealthCheck script foundation
+
+---
+
+## SESSION SUMMARY
+
+Major milestone achieved:
+
+- Transitioned from unstable NAT-based networking → controlled internal architecture
+- Restored full domain functionality
+- Validated end-to-end AD + GPO pipeline
+
+This marks the first fully stable foundation state of HD7.
+
+---
