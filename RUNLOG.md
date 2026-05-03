@@ -382,3 +382,72 @@
 - Strong validation-first workflow maintained throughout
 - First true end-to-end success of HD7:
   - VM → Domain → OU → GPO → Enforcement → Validation
+
+### 2026-05-03 (Morning Session) — Phase 1 (Core Network + GPO Baseline Stabilization)
+
+---
+
+## OBJECTIVE
+
+Stabilize HD7 core infrastructure by:
+
+- Fixing domain connectivity issues between TEACH01 and DC01
+- Eliminating unreliable Default Switch/DHCP behavior
+- Establishing deterministic internal networking (10.0.0.0/24)
+- Validating GPO application in a clean, controlled environment
+
+---
+
+## INITIAL STATE / PROBLEM
+
+TEACH01 lost connectivity to the domain:
+
+- gpupdate /force failed with “lack of network connectivity to a domain controller”
+- ping to DC01 (172.19.x.x) returned “Destination net unreachable”
+- TEACH01 receiving DHCP address (172.17.x.x) from Hyper-V Default Switch
+- DNS server incorrectly pointing to external/non-domain address
+- Result: Domain trust path effectively broken
+
+Root Cause:
+
+- Reliance on Hyper-V Default Switch (NAT/DHCP) introduced non-deterministic networking
+- No consistent subnet shared between DC01 and TEACH01
+- DNS not pointing to DC01 (critical failure for AD)
+
+---
+
+## DECISION (OPTION B)
+
+Move to a **fully controlled internal network model**:
+
+- Use Hyper-V Internal Switch (HD7-Internal)
+- Assign static IPs
+- Eliminate DHCP/NAT dependency
+- Align with “boring, predictable infrastructure” principle
+
+---
+
+## ACTIONS TAKEN
+
+### 1. Hyper-V Network Reconfiguration
+
+- Created / used: HD7-Internal switch
+- Attached BOTH:
+  - HD7-DC01
+  - HD7-TEACH01
+- Removed dependency on Default Switch
+
+---
+
+### 2. DC01 Network Configuration (Authoritative Anchor)
+
+Configured static IP:
+
+```powershell
+New-NetIPAddress -InterfaceAlias "Ethernet" `
+  -IPAddress 10.0.0.10 `
+  -PrefixLength 24
+
+Set-DnsClientServerAddress -InterfaceAlias "Ethernet" `
+  -ServerAddresses 127.0.0.1
+```
