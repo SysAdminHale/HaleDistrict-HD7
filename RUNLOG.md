@@ -597,3 +597,239 @@ Major milestone achieved:
 This marks the first fully stable foundation state of HD7.
 
 ---
+
+### 2026-05-03 HD7 RUNLOG — Phase 1 ADM01 Build + Admin Control Plane Established
+
+Date: 2026-05-02 (Evening Session)
+
+---
+
+## OBJECTIVE
+
+Extend the HD7 environment by:
+
+- Introducing a dedicated admin workstation (ADM01)
+- Maintaining clean network design (HD7-Internal, static IPs)
+- Validating domain connectivity and GPO processing from a non-DC endpoint
+- Establishing proper separation of roles (DC vs Admin vs Client)
+
+---
+
+## STARTING STATE
+
+- DC01 fully functional (10.0.0.10, DNS + AD DS)
+- TEACH01 domain-joined and receiving GPOs (10.0.0.50)
+- Internal network (10.0.0.0/24) stable and deterministic
+- No admin workstation yet (all management occurring on DC01)
+
+---
+
+## ACTIONS TAKEN
+
+### 1. Created ADM01 VM (HD7-ADM01)
+
+- Generation 2 VM
+- Windows 11 (differencing disk from golden image)
+- Connected to: HD7-Internal switch
+- No Default Switch attached (intentional design choice)
+
+---
+
+### 2. Initial Network Configuration Attempt (Failure + Learning)
+
+Attempted:
+
+New-NetIPAddress -InterfaceAlias "Ethernet" ...
+
+Result:
+
+- ERROR: Interface not found
+
+Root Cause:
+
+- Interface alias did not match actual adapter name
+- VM used "Ethernet 3"
+
+Key Learning:
+
+- Never assume interface names
+- Always verify using:
+  Get-NetAdapter
+
+---
+
+### 3. Correct Network Configuration (Successful)
+
+Configured ADM01:
+
+New-NetIPAddress -InterfaceAlias "Ethernet 3" `  -IPAddress 10.0.0.100`
+-PrefixLength 24 `
+-DefaultGateway 10.0.0.1
+
+Set-DnsClientServerAddress -InterfaceAlias "Ethernet 3" `
+-ServerAddresses 10.0.0.10
+
+Result:
+
+- Static IP successfully applied
+- DNS correctly pointing to DC01
+
+---
+
+### 4. Connectivity Validation
+
+Ping Test:
+ping 10.0.0.10
+→ SUCCESS (0% loss)
+
+DNS Test:
+nslookup haledistrict.local
+→ SUCCESS (resolved to 10.0.0.10, minor timeout observed but non-blocking)
+
+Conclusion:
+
+- Network and DNS functioning sufficiently for domain join
+
+---
+
+### 5. Domain Join (ADM01)
+
+Command:
+
+Add-Computer -DomainName haledistrict.local -Credential haledistrict\Administrator -Restart
+
+Result:
+
+- ADM01 successfully joined to domain
+- Reboot completed without issue
+
+---
+
+### 6. Post-Join Validation
+
+whoami
+→ haledistrict\administrator
+
+$env:LOGONSERVER
+→ \\HD7-DC01
+
+nltest /dsgetdc:haledistrict.local
+→ SUCCESS
+
+- DC located: \\HD7-DC01.haledistrict.local
+- All required flags present (PDC, GC, DNS, WRITABLE, etc.)
+
+gpupdate /force
+→ SUCCESS
+
+- Computer Policy: SUCCESS
+- User Policy: SUCCESS
+
+---
+
+## CURRENT STATE (END OF SESSION)
+
+Infrastructure:
+
+- DC01: 10.0.0.10 (AD DS + DNS)
+- TEACH01: 10.0.0.50 (managed endpoint)
+- ADM01: 10.0.0.100 (admin workstation)
+
+Network:
+
+- Single subnet: 10.0.0.0/24
+- Hyper-V switch: HD7-Internal
+- No DHCP / no NAT / fully controlled
+
+Validation Status:
+
+- DC connectivity: PASS
+- DNS resolution: PASS
+- Domain join: PASS
+- GPO processing: PASS
+- Admin login: PASS
+
+---
+
+## ARCHITECTURAL MILESTONE
+
+Established proper role separation:
+
+- DC01 → Identity + DNS (infrastructure core)
+- TEACH01 → Managed client (policy target)
+- ADM01 → Administrative control plane
+
+This eliminates the anti-pattern of managing from the domain controller.
+
+---
+
+## KEY LEARNINGS
+
+1. Interface Alias Matters
+
+- PowerShell networking commands require exact adapter names
+- Always validate with Get-NetAdapter
+
+2. Deterministic Networking Continues to Pay Off
+
+- Static IP + internal switch = predictable behavior
+- Troubleshooting remains simple and fast
+
+3. Domain Validation Pattern is Now Standardized
+   Core validation checklist:
+
+- ping DC
+- nslookup domain
+- nltest /dsgetdc
+- gpupdate /force
+
+4. Separation of Duties Improves Design Quality
+
+- Admin tasks no longer tied to DC01
+- Environment now mirrors real enterprise workflow
+
+---
+
+## KNOWN GAPS / FUTURE CONSIDERATIONS
+
+- Default Gateway (10.0.0.1) still not implemented (no router yet)
+- No internet access (intentional)
+- RSAT tools not yet installed on ADM01
+- No FS01 (file services) yet
+- No RT01 (routing/NAT) yet
+
+---
+
+## NEXT STEPS (NEXT SESSION)
+
+1. Install RSAT on ADM01 (HIGH PRIORITY)
+   - Active Directory Users and Computers
+   - Group Policy Management
+   - Begin remote administration model
+
+2. Begin managing AD from ADM01 instead of DC01
+   - Validate full remote admin workflow
+
+3. Expand GPO Baseline
+   - Introduce Student OU policies
+   - Continue refinement of Teacher baseline
+
+4. Optional:
+   - Rename network adapters for consistency (e.g., "LAN")
+
+---
+
+## SESSION SUMMARY
+
+Major milestone achieved:
+
+- Successfully introduced ADM01 as dedicated admin workstation
+- Maintained clean, deterministic network architecture
+- Validated full domain functionality from a non-DC system
+
+HD7 now has a complete foundational triad:
+Identity (DC01) + Client (TEACH01) + Admin (ADM01)
+
+Environment is stable, scalable, and ready for Phase 2.
+
+---
