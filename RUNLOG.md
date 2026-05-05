@@ -833,3 +833,180 @@ Identity (DC01) + Client (TEACH01) + Admin (ADM01)
 Environment is stable, scalable, and ready for Phase 2.
 
 ---
+
+### HD7 RUNLOG — Phase 1: ADM01 Domain Integration & RSAT Validation
+
+**Date:** 2026-05-04
+**Systems:** HD7-ADM01, HD7-DC01
+**Focus:** Establish ADM01 as a fully functional domain-joined admin workstation with RSAT + GPMC
+
+---
+
+## OBJECTIVE
+
+Build a stable, deterministic admin workstation (ADM01) capable of:
+
+- Resolving and communicating with DC01
+- Running RSAT tools (ADUC, GPMC)
+- Serving as the control plane for HD7
+
+---
+
+## INITIAL STATE / PROBLEM
+
+- ADM01 NIC was toggled between Default Switch and HD7-Internal
+- Mixed DHCP + static configurations caused:
+  - Incorrect IP assignments (172.x.x.x vs 10.0.0.x)
+  - DNS inconsistency
+  - Domain lookup failures (ERROR_NO_SUCH_DOMAIN)
+- RSAT installation partially succeeded (ADUC worked, GPMC missing)
+- Add-WindowsCapability failed with error `0x8024402c` (no internet path)
+
+---
+
+## ROOT CAUSE
+
+1. Network ambiguity
+   - Default Switch = internet access (NAT/DHCP)
+   - Internal Switch = domain-only network (no internet)
+   - Switching between them without resetting NIC caused config drift
+
+2. DNS dependency
+   - Domain operations require DNS = DC01 (10.0.0.10)
+   - Internet operations require upstream DNS access
+
+3. State drift
+   - Residual DHCP/APIPA + static config overlap
+   - Gateway and DNS inconsistencies
+
+---
+
+## RESOLUTION STEPS
+
+### 1. Re-established Internet Connectivity (Default Switch)
+
+- Switched ADM01 NIC → Default Switch
+- Verified:
+  - ping 8.8.8.8 ✅
+  - ping google.com ✅
+- Successfully installed RSAT components:
+  - AD DS tools
+  - Group Policy Management Tools (GPMC)
+
+---
+
+### 2. Returned to Domain Network (HD7-Internal)
+
+- Switched NIC back to HD7-Internal
+- Observed failure state:
+  - APIPA address (169.254.x.x)
+  - DNS resolution failure
+  - nltest failed (ERROR_NO_SUCH_DOMAIN)
+
+---
+
+### 3. Clean Network Rebuild (CRITICAL FIX)
+
+- Avoided incremental fixes
+- Rebuilt NIC config cleanly:
+
+New-NetIPAddress -InterfaceAlias "Ethernet 3" `  -IPAddress 10.0.0.100`
+-PrefixLength 24 `
+-DefaultGateway 10.0.0.1
+
+Set-DnsClientServerAddress -InterfaceAlias "Ethernet 3" `
+-ServerAddresses 10.0.0.10
+
+- Result:
+  - Static IP correctly applied
+  - DNS correctly pointed to DC01
+  - No DHCP/APIPA remnants
+
+---
+
+## VALIDATION (SUCCESS CRITERIA)
+
+### Network
+
+- ipconfig /all
+  - IP: 10.0.0.100 ✅
+  - Gateway: 10.0.0.1 ✅
+  - DNS: 10.0.0.10 ✅
+
+### Connectivity
+
+- ping 10.0.0.10 → success
+- ping google.com (on Default Switch only) → success
+
+### Domain
+
+- nltest /dsgetdc:haledistrict.local → SUCCESS
+  - DC located: HD7-DC01
+  - DNS resolution confirmed
+  - Secure channel established
+
+### RSAT Tools
+
+- ADUC launches successfully
+- GPMC launches successfully (gpmc.msc)
+
+---
+
+## CURRENT STATE (STABLE BASELINE)
+
+ADM01 is now:
+
+- Domain-joined and trusted
+- Using deterministic static IP config
+- Resolving DNS via DC01
+- Running RSAT (ADUC + GPMC)
+- Functioning as HD7 admin control plane
+
+---
+
+## KEY LESSONS (CRITICAL FOR HD7+)
+
+1. Default Switch vs Internal Switch
+   - Default = internet (required for RSAT install)
+   - Internal = domain network (required for AD operations)
+   - Never mix configs between them
+
+2. DNS is everything
+   - AD breaks immediately if DNS is wrong
+   - Always validate DNS first
+
+3. Clean rebuild > incremental fixes
+   - State drift caused most issues
+   - Rebuilding NIC config was the decisive fix
+
+4. Validate every layer
+   - IP → Ping → DNS → Domain → Tools
+   - This layered validation prevented hidden issues
+
+---
+
+## HD7 DESIGN PRINCIPLE REINFORCED
+
+"Prefer clean, deterministic state over clever fixes."
+
+---
+
+## NEXT PHASE
+
+Phase 2: Initial GPO Framework
+
+- Create core OUs:
+  - HD7-Workstations
+  - HD7-Users
+- Deploy first test GPO (Block CMD)
+- Validate GPO processing on client machine (TEACH01)
+
+---
+
+## STATUS
+
+✅ Phase 1 COMPLETE  
+✅ Stable baseline established  
+🟢 Ready for controlled GPO rollout
+
+---
