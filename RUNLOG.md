@@ -1010,3 +1010,65 @@ Phase 2: Initial GPO Framework
 🟢 Ready for controlled GPO rollout
 
 ---
+
+### 2026-05-05 – Phase 1: User GPO Validation SUCCESS
+
+Objective:
+Validate that a user-scoped GPO applies correctly using clean OU structure and proper linkage
+
+Actions Taken:
+
+- Installed RSAT tools on HD7-ADM01
+- Launched Group Policy Management (gpmc.msc)
+- Verified domain connectivity using:
+  - ping 10.0.0.10 (DC01)
+  - nltest /dsgetdc:haledistrict.local
+- Created and confirmed OU structure:
+  - HD7-Users (for user objects)
+  - HD7-Workstations (for computer objects)
+- Created test user:
+  - HD7-teacher01 in HD7-Users OU
+- Verified TEACH01 computer object resides in HD7-Workstations OU
+- Identified that HD7-GPO-Teachers-Baseline contained USER configuration (CMD block)
+- Corrected GPO linkage:
+  - Removed link from incorrect location (Workstations context)
+  - Linked GPO to HD7-Users OU
+- Ensured GPO Status = Enabled
+- Logged into TEACH01 as HD7-teacher01
+- Forced policy update and verified with:
+  - gpupdate /force
+  - gpresult /r
+
+Validation Results:
+
+- GPO appears under USER SETTINGS in gpresult output
+- Command Prompt successfully blocked with message:
+  "The command prompt has been disabled by your administrator."
+
+Outcome:
+User-scoped GPO successfully applied and enforced in a clean, predictable manner
+
+Key Learnings:
+
+- GPO scope is determined by where it is LINKED, not where it is stored
+- USER Configuration applies based on USER object OU location
+- COMPUTER Configuration applies based on COMPUTER object OU location
+- Proper OU design is critical for predictable GPO behavior
+- Clean separation of Users and Workstations simplifies troubleshooting significantly
+
+Notes:
+
+- Previous HD6 confusion around GPO scope, filtering, and loopback avoided by simplifying design in HD7
+- Environment now stable and behaving deterministically
+
+Next Steps:
+
+- Perform controlled validation (Option A):
+  - Move HD7-teacher01 out of HD7-Users OU → confirm GPO no longer applies
+  - Move user back → confirm GPO reapplies
+- After validation, proceed to:
+  - Create and test computer-scoped GPO (HD7-Workstations)
+  - Introduce Loopback Processing in a controlled, well-understood manner
+
+Status:
+SUCCESS – Core GPO user policy pipeline fully validated
