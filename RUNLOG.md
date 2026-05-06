@@ -1072,3 +1072,66 @@ Next Steps:
 
 Status:
 SUCCESS – Core GPO user policy pipeline fully validated
+
+### 2026-05-06 — Phase 2: Computer GPO Validation (AUP Banner) SUCCESS
+
+Objective:
+Validate that a COMPUTER-scoped GPO applies correctly when linked to the Workstations OU and enforces behavior prior to user logon.
+
+Actions Taken:
+
+- Created new GPO: HD7-GPO-Workstations-AUP-Notice
+- Configured settings under:
+  Computer Configuration → Policies → Windows Settings → Security Settings → Local Policies → Security Options:
+  - Interactive logon: Message title for users attempting to log on
+    → "HALEDISTRICT AUTHORIZED USE ONLY"
+  - Interactive logon: Message text for users attempting to log on
+    → "This system is for authorized use only. All activity may be monitored and recorded. Unauthorized access is prohibited."
+- Verified GPO Status = Enabled
+- Linked GPO to: HD7-Workstations OU
+- Confirmed Security Filtering = Authenticated Users (default, appropriate for baseline)
+- Ran gpupdate /force on TEACH01
+- Rebooted TEACH01 using:
+  shutdown /r /t 0
+
+Validation Results:
+
+- AUP login banner appears BEFORE credential prompt
+- Title and message display exactly as configured
+- Behavior consistent across reboot cycle
+- Confirms COMPUTER-scoped GPO applies based on computer object OU (HD7-Workstations)
+
+Outcome:
+Computer-scoped GPO successfully applied and validated in a clean, deterministic manner.
+
+Key Learnings:
+
+- COMPUTER Configuration applies based on computer object location (OU linkage)
+- COMPUTER GPOs apply before user logon (pre-authentication)
+- USER vs COMPUTER scope separation is now clearly validated in HD7
+- Proper OU design (Users vs Workstations) eliminates ambiguity in GPO processing
+- Simple, single-purpose GPOs improve clarity and troubleshooting
+
+Design Principles Reinforced:
+
+- “Boring infrastructure” → predictable, explainable behavior
+- One GPO = one purpose
+- Link where it applies, not where it is stored
+- Clean separation of USER and COMPUTER policy domains
+
+Current State:
+
+- USER GPOs validated (CMD block, Control Panel block)
+- COMPUTER GPO validated (AUP login banner)
+- OU structure functioning as designed
+- GPO processing is deterministic and fully understood
+
+Status:
+🟢 Phase 2 COMPLETE
+🟢 Core GPO model validated (User + Computer)
+🟢 Ready for controlled expansion (Pilot Ring v2 or Loopback introduction)
+
+Next Phase (Planned):
+
+- Introduce Security Group filtering (Pilot Ring v2)
+- Begin controlled, targeted GPO application strategy
