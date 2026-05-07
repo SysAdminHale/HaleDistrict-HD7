@@ -1135,3 +1135,79 @@ Next Phase (Planned):
 
 - Introduce Security Group filtering (Pilot Ring v2)
 - Begin controlled, targeted GPO application strategy
+
+### 2026-05-07 — Phase 2: Security Filtering + Group-Based Targeting SUCCESS
+
+Objective:
+Transition from OU-based GPO application to group-based targeting using Security Filtering, establishing a scalable Pilot → Production model.
+
+Actions Taken:
+
+- Created new security group:
+  - SG-HD7-Production-Users
+
+- Added HD7-Teacher01 to:
+  - SG-HD7-Pilot-Users
+  - SG-HD7-Production-Users (for expanded targeting test)
+
+- Updated GPO: HD7-GPO-Users-ControlPanel-Block
+  - Scope → Security Filtering:
+    - Removed: Authenticated Users
+    - Added:
+      - SG-HD7-Pilot-Users
+      - SG-HD7-Production-Users
+
+- Verified Delegation configuration:
+  - Authenticated Users → Read (retained for GPO visibility)
+  - SG groups → Read (via Security Filtering)
+  - Confirmed no unintended Apply permissions
+
+- Forced policy update:
+  - gpupdate /force
+
+- Observed initial issue:
+  - GPO filtered out (Denied - Security)
+
+- Identified root cause:
+  - User token did not include updated group membership
+
+- Performed corrective action:
+  - Full logoff/logon of HD7-Teacher01
+
+Validation Results:
+
+- gpresult /r confirms:
+  - HD7-GPO-Teachers-Baseline → Applied
+  - HD7-GPO-Users-ControlPanel-Block → Applied
+
+- Functional validation:
+  - Control Panel access blocked
+  - Settings access blocked
+  - Behavior consistent with GPO configuration
+
+Key Learnings:
+
+- Security Filtering determines WHO applies a GPO (not just where it is linked)
+- Group membership changes require logoff/logon (token refresh)
+- Delegation and Security Filtering serve different purposes:
+  - Delegation → Read access (visibility)
+  - Security Filtering → Apply permission (targeting)
+- Clean separation of:
+  - OU structure (scope)
+  - Group membership (targeting)
+    significantly improves flexibility and scalability
+
+Outcome:
+
+Successfully implemented a group-based GPO targeting model supporting:
+
+- Pilot rollout (SG-HD7-Pilot-Users)
+- Production rollout (SG-HD7-Production-Users)
+
+This establishes a scalable, enterprise-aligned policy deployment pattern without reliance on OU restructuring.
+
+Next Steps:
+
+- Introduce second user (HD7-Teacher02)
+- Validate Pilot → Production promotion workflow using group membership only
+- Confirm identical policy behavior across multiple users
