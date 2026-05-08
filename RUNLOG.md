@@ -1211,3 +1211,143 @@ Next Steps:
 - Introduce second user (HD7-Teacher02)
 - Validate Pilot → Production promotion workflow using group membership only
 - Confirm identical policy behavior across multiple users
+
+## 2026-05-07 Phase 2 Continued: Pilot → Production Validation
+
+---
+
+### 🎯 Objective
+
+Validate that GPO targeting scales beyond pilot by introducing a production group and confirming consistent policy application across multiple users.
+
+---
+
+### 🛠️ Work Completed
+
+#### 1. Production Security Group Expansion
+
+- Created additional user:
+  - `HD7-Teacher03`
+- Added users to **SG-HD7-Production-Users**:
+  - HD7-Teacher01
+  - HD7-Teacher02
+  - HD7-Teacher03
+
+---
+
+#### 2. GPO Targeting Model (Confirmed)
+
+**GPO:** `HD7-GPO-Users-ControlPanel-Block`  
+**Link Location:** `HD7-Users OU`
+
+**Security Filtering:**
+
+- SG-HD7-Pilot-Users
+- SG-HD7-Production-Users
+
+**Delegation:**
+
+- Authenticated Users → Read (Allow)
+- No unintended Apply permissions
+
+---
+
+#### 3. Validation Testing
+
+**Test Method:**
+
+- Log on as multiple users
+- Run:
+  gpupdate /force  
+  gpresult /r
+
+**Observed Results:**
+
+✔ Users in Production group receive:
+
+- `HD7-GPO-Teachers-Baseline`
+- `HD7-GPO-Users-ControlPanel-Block`
+
+✔ No filtering errors  
+✔ No dependency on Pilot group  
+✔ Policy behavior consistent across all tested users
+
+---
+
+### 🧠 Key Concepts Reinforced
+
+#### OU vs Security Group Roles
+
+- **OU** → Defines _scope of possible policy_
+- **Security Group** → Defines _who actually receives policy_
+
+---
+
+#### Identity-Based Policy Control
+
+Successfully demonstrated:
+
+- Same OU
+- Same GPO
+- Different outcomes based solely on group membership
+
+Core principle validated:
+
+> Policy targeting is identity-driven, not location-driven.
+
+---
+
+#### Pilot → Production Rollout Model
+
+Validated real-world deployment workflow:
+
+1. Deploy to Pilot group
+2. Validate behavior
+3. Expand to Production group
+4. Confirm consistent results
+
+---
+
+### ⚠️ Observations / Notes
+
+- Group membership changes required **logoff/logon** to refresh token
+- `gpresult /r` confirmed as reliable validation method
+- No need to modify GPO linking during scale-out
+- Existing delegation model remained correct during expansion
+
+---
+
+### 🧱 Current State of Environment
+
+- Stable OU structure
+- Functional GPO targeting model
+- Working Pilot + Production group strategy
+- Verified repeatable deployment pattern
+- No known errors or inconsistencies
+
+---
+
+### 🚀 Next Phase (Planned)
+
+**Transition to Device-Based Control (Loopback Processing)**
+
+Goal:
+
+- Introduce computer-based policy enforcement
+- Control user experience based on **device**, not just identity
+
+Planned work:
+
+- Create loopback GPO (MERGE mode first)
+- Link to `HD7-Workstations`
+- Validate user behavior changes based on login location
+
+---
+
+### 💬 Session Summary
+
+Short, focused session with strong conceptual clarity.  
+Successfully transitioned from pilot testing to scalable production rollout.  
+All validation steps confirmed expected behavior with no anomalies.
+
+Environment is stable and ready for next phase.
