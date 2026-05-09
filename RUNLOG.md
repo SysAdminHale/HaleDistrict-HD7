@@ -1351,3 +1351,158 @@ Successfully transitioned from pilot testing to scalable production rollout.
 All validation steps confirmed expected behavior with no anomalies.
 
 Environment is stable and ready for next phase.
+
+## 2026-05-08 — Phase 2 Continued: Loopback Processing (MERGE + REPLACE) SUCCESS
+
+---
+
+### 🎯 Objective
+
+Validate and fully understand Group Policy loopback processing modes (MERGE and REPLACE), and confirm behavior using real user + computer scenarios.
+
+---
+
+### 🛠️ Work Completed
+
+#### 1. Loopback (MERGE) Implementation + Validation
+
+- Created GPO:
+  - `HD7-GPO-Workstations-Loopback-MERGE`
+- Linked to:
+  - `HD7-Workstations` OU
+- Configured:
+  - Computer Configuration → Policies → Administrative Templates → System → Group Policy
+  - Enabled **"Configure user Group Policy loopback processing mode" = MERGE**
+
+- Test Result (TEACH01):
+  - User GPO: `HD7-GPO-Users-ControlPanel-Block` = BLOCK
+  - Computer GPO (loopback): allowed Control Panel
+  - Final behavior: **Control Panel accessible**
+
+- Validation:
+  - `gpresult /r` showed BOTH user + computer GPOs applied
+  - Behavior confirmed MERGE = combine policies (computer can override)
+
+---
+
+#### 2. Loopback (REPLACE) Implementation + Validation
+
+- Created GPO:
+  - `HD7-GPO-Workstations-Loopback-REPLACE`
+- Linked to:
+  - `HD7-Workstations` OU
+- Disabled:
+  - `HD7-GPO-Workstations-Loopback-MERGE` (Link Disabled)
+
+- Configured:
+  - Same path as above
+  - Mode = **REPLACE**
+
+- Test Result (TEACH01 with HD7-Teacher03):
+  - User GPO: **NOT applied**
+  - Computer GPO: applied and enforced restrictions
+  - Final behavior: **Control Panel BLOCKED**
+
+- Validation:
+  - `gpresult /r` showed:
+    - `HD7-GPO-Workstations-Loopback-REPLACE` = applied
+    - User GPO (`HD7-GPO-Users-ControlPanel-Block`) = NOT applied
+  - System message:
+    - “This operation has been cancelled due to restrictions...”
+
+---
+
+#### 3. Multi-User Expansion (Production Group)
+
+- Created new user:
+  - `HD7-Teacher03`
+- Added users to:
+  - `SG-HD7-Production-Users`
+    - HD7-Teacher01
+    - HD7-Teacher02
+    - HD7-Teacher03
+
+- Validated:
+  - Consistent behavior across multiple users
+  - Group-based targeting scales cleanly
+
+---
+
+### 🧠 Key Learnings
+
+- Loopback processing fundamentally changes **policy precedence model**
+
+#### MERGE:
+
+- Combines user + computer policies
+- Computer policies apply last → can override user
+
+#### REPLACE:
+
+- Ignores user-linked GPOs entirely
+- Only computer-linked user settings apply
+
+---
+
+- GPO application depends on:
+  - OU (scope)
+  - Security Filtering (who)
+  - Loopback (how user policies are processed)
+
+---
+
+- `gpresult /r` is the definitive validation tool:
+  - Shows applied GPOs
+  - Shows filtered GPOs
+  - Confirms loopback behavior clearly
+
+---
+
+### 🧾 Outcome
+
+Successfully implemented and validated:
+
+- User-based GPO targeting (Security Groups)
+- Computer-based policy override (Loopback MERGE + REPLACE)
+- Clean separation of:
+  - WHO gets policy (groups)
+  - WHERE it applies (computers)
+
+---
+
+### 🚀 Current State
+
+Phase 2 COMPLETE:
+
+- GPO targeting model = stable and scalable
+- Loopback processing = fully understood and validated
+- Multi-user testing = successful
+
+---
+
+### 🔜 Next Steps (Phase 3)
+
+- Validate cross-machine behavior:
+  - Same user on TEACH01 (loopback) vs ADM01 (no loopback)
+- Confirm:
+  - Machine context drives experience (not just user)
+
+- Expand test matrix:
+  - Multiple users × multiple machines
+
+---
+
+### 🧭 Strategic Note
+
+HD7 continues to follow core design principles:
+
+- Boring, predictable infrastructure
+- Validation-first approach
+- Clear separation of concerns:
+  - OU = scope
+  - Group = targeting
+  - GPO = configuration
+
+This iteration is significantly cleaner and more deterministic than HD6.
+
+---
