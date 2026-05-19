@@ -1506,3 +1506,266 @@ HD7 continues to follow core design principles:
 This iteration is significantly cleaner and more deterministic than HD6.
 
 ---
+
+## 2026-05-18 — Phase 4 COMPLETE: Administrative Boundary Separation + Clean OU Architecture
+
+### 🎯 Objective
+
+Validate that administrative workstations can be cleanly separated from standard workstation policy inheritance in HD7.
+
+Primary goals:
+
+- Prevent ADM01 from inheriting workstation UX/restriction policies
+- Preserve clean workstation policy behavior for TEACH01
+- Refine OU architecture for long-term scalability and future Entra alignment
+- Continue validation-first HD7 methodology
+
+---
+
+### 🧱 Initial Architecture
+
+Original structure:
+
+```text
+HD7-Workstations
+├── Pilot
+├── Production
+└── Admins
+```
+
+This caused:
+
+- ADM01 to remain inside the workstation policy inheritance tree
+- ADM01 to inherit:
+  - HD7-GPO-Workstations-AUP-Notice
+  - HD7-GPO-Workstations-Loopback-REPLACE
+
+Even after:
+
+- moving ADM01 into Admins
+- using Block Inheritance concepts
+
+Reason:
+
+```text
+OU=Admins,OU=HD7-Workstations
+```
+
+was still a child of the workstation OU.
+
+---
+
+### 🔍 Validation Performed
+
+Used repeated:
+
+```powershell
+gpresult /r
+```
+
+validation on:
+
+- TEACH01
+- ADM01
+
+Observed:
+
+#### TEACH01
+
+Correctly received:
+
+- Workstation AUP Notice
+- Loopback REPLACE behavior
+
+#### ADM01
+
+Incorrectly continued receiving:
+
+- Workstation AUP Notice
+- Loopback REPLACE
+
+This proved:
+
+- OU inheritance path still mattered
+- Admins OU placement was architecturally incorrect
+
+---
+
+### 🧠 Key Learning
+
+Administrative workstations must NOT exist inside the workstation policy tree.
+
+Clean separation of:
+
+- user workstations
+- admin infrastructure workstations
+
+is critical for:
+
+- predictability
+- troubleshooting
+- scalability
+- future cloud/Entra integration
+
+---
+
+### 🛠 Architecture Refinement
+
+Created new top-level OU:
+
+```text
+HD7-Admins
+```
+
+New structure:
+
+```text
+HD7-Workstations
+├── Pilot
+└── Production
+
+HD7-Admins
+```
+
+Moved:
+
+```text
+HD7-ADM01
+```
+
+to:
+
+```text
+OU=HD7-Admins
+```
+
+---
+
+### ✅ Final Validation Results
+
+After reboot +:
+
+```powershell
+gpupdate /force
+gpresult /r
+```
+
+ADM01 results:
+
+#### COMPUTER SETTINGS
+
+Only:
+
+- Default Domain Policy
+
+No longer inherited:
+
+- AUP Notice
+- Loopback REPLACE
+
+#### USER SETTINGS
+
+Returned:
+
+```text
+Applied Group Policy Objects
+    N/A
+```
+
+This is the intended clean admin workstation state.
+
+---
+
+### 🧠 Strategic Learnings
+
+#### OU placement drives inheritance boundaries
+
+Even a "special purpose" child OU still inherits from its parent path.
+
+---
+
+#### Administrative workstations should be isolated infrastructure
+
+Admin systems should:
+
+- avoid classroom/user restrictions
+- avoid loopback experiments
+- remain clean management endpoints
+
+---
+
+#### `gpresult /r` remains the definitive truth source
+
+Critical for:
+
+- inheritance validation
+- loopback validation
+- troubleshooting
+- proving final architecture behavior
+
+---
+
+### 🏗 HD7 Architecture Status
+
+Current clean structure:
+
+```text
+HD7-Users
+
+HD7-Workstations
+├── Pilot
+└── Production
+
+HD7-Admins
+```
+
+This now provides:
+
+- clean separation of concerns
+- scalable workstation targeting
+- isolated admin systems
+- simpler troubleshooting
+- Entra-friendly structure
+- deterministic inheritance behavior
+
+---
+
+### 🚀 Phase 4 Outcome
+
+Successfully validated:
+
+- Workstation policy isolation
+- Loopback boundary behavior
+- Administrative workstation separation
+- OU inheritance architecture
+- Clean enterprise-style workstation design
+
+HD7 architecture is now significantly cleaner than HD6.
+
+---
+
+### 🔜 Next Phase
+
+Phase 5:
+
+- RSAT-based administration workflows
+- Remote management from ADM01
+- "Admin from workstation, not from DC" operational model
+- Enterprise-style management patterns
+- Preparation for future hybrid/Entra concepts
+
+---
+
+### 🧭 Strategic Note
+
+HD7 continues validating the core philosophy:
+
+- Boring infrastructure
+- Clean boundaries
+- Deterministic behavior
+- Validation-first design
+- Simplicity over cleverness
+
+This refinement represents a major architectural improvement over HD6.
+
+---
