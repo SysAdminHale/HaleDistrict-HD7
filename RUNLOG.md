@@ -1769,3 +1769,160 @@ HD7 continues validating the core philosophy:
 This refinement represents a major architectural improvement over HD6.
 
 ---
+
+### 2026-07-21 — Phase 5 Kickoff: Environment Resume + Domain Triad Re-Validation SUCCESS
+
+---
+
+## OBJECTIVE
+
+Resume HD7 after an extended pause (Germany relocation prep) by:
+
+- Confirming the lab environment survived the pause without drift or breakage
+- Re-validating the domain triad (network → DNS → domain trust) from ADM01
+- Re-confirming GPO processing pipeline still functions end-to-end
+- Formally locking in Charter v2 scope decisions before resuming build work
+
+---
+
+## CONTEXT
+
+HD7 paused after Phase 4 (2026-05-18) during final push on Germany relocation logistics. No changes made to the environment during the pause. This session is the first touch since then.
+
+---
+
+## STARTING STATE
+
+- DC01: powered off at last check
+- ADM01, TEACH01: running
+- Unknown whether environment had drifted after months untouched
+
+---
+
+## ACTIONS TAKEN
+
+### 1. Environment Boot Check
+
+- Started all HD7 VMs (DC01, ADM01, TEACH01)
+- Visually confirmed via Hyper-V Manager and direct console:
+  - ADUC: `haledistrict.local` structure fully intact — HD7-Teacher01/02/03, SG-HD7-Pilot-Users, SG-HD7-Production-Users, OU structure (HD7-Admins, HD7-Users, HD7-Workstations) all present
+  - GPMC: all 6 custom GPOs present and Enabled (Teachers-Baseline, Users-ControlPanel-Block, Workstations-AUP-Notice, Workstations-Loopback-MERGE, Workstations-Loopback-REPLACE, plus Default Domain / Default DC policies)
+  - TEACH01: AUP login banner still firing correctly pre-authentication
+  - TEACH01: login screen correctly defaulting to last-used user (HD7-Teacher03), consistent with prior Loopback REPLACE testing
+
+### 2. Domain Triad Validation (from ADM01 — not DC01, per "admin from workstation" principle)
+
+Ran standardized validation checklist from HD7-ADM01:
+
+```powershell
+ping 10.0.0.10
+nltest /dsgetdc:haledistrict.local
+gpupdate /force
+```
+
+---
+
+## VALIDATION RESULTS
+
+**Ping Test:**
+
+- 10.0.0.10 (DC01) → SUCCESS, 0% loss, <1ms round trip
+
+**Domain Controller Discovery:**
+
+- `\\HD7-DC01.haledistrict.local` located at 10.0.0.10
+- Flags confirmed: PDC, GC, DS, LDAP, KDC, WRITABLE, DNS_DC, DNS_DOMAIN, DNS_FOREST, CLOSE_SITE, FULL_SECRET, WS
+- Command completed successfully
+
+**Group Policy Refresh:**
+
+- Computer Policy update: SUCCESS
+- User Policy update: SUCCESS
+
+**Overall: Domain triad fully PASS. No degradation after multi-month pause.**
+
+---
+
+## CHARTER UPDATE (Companion Decision)
+
+Reviewed and finalized HD7 Charter v2 (saved alongside original, not replacing it):
+
+- **Confirmed:** Entra ID hybrid identity is the next and final HD7-Core objective (Intune was mistakenly recalled as "first" during the pause — original April charter and now v2 both confirm Entra ID precedes Intune, since Intune requires Entra as its identity source)
+- **Deferred to HD8:** Intune (device management) + FS01 (file server / healthcheck scripts) — FS01 intentionally paused for all of HD7 to preserve "one new concept at a time" discipline
+- **Clarified:** No new VMs/users required for Entra ID objective — HD7-Teacher01 + HD7-TEACH01 sufficient per Charter's own success criteria. TEACH02/STUD01/STUD02 would only be needed for optional scoped-sync testing, not core validation
+- **Confirmed via screenshot:** RT01 was never built in HD7 (unlike HD3–HD6) — intentional simplification per original charter's Out of Scope list, not a gap
+
+---
+
+## KEY LEARNINGS
+
+1. **Deterministic infrastructure pays off over time, not just at build time**
+   - Static IP + Internal Switch design meant zero config drift after months of inactivity
+   - No DHCP lease expiration, no APIPA fallback, no DNS staleness — the same class of problems that plagued HD6 never had a chance to occur here
+
+2. **"Admin from workstation, not from DC" validated as a durable habit**
+   - Running the triad check from ADM01 (not DC01) reinforced the Phase 5 (2026-05-04) operational model rather than reverting to old habits under pause-induced rust
+
+3. **Memory drift is real and worth checking against written record**
+   - Recalled Intune-before-Entra ordering during the pause, which contradicted both the original Charter and basic technical dependency (Intune requires Entra ID as identity source)
+   - RUNLOG + Charter as source of truth caught this before it caused wasted work
+
+4. **A stable pause is not the same as a failed project**
+   - Zero rebuild required after resuming — this is itself a validation of HD7's "boring infrastructure" design philosophy
+
+---
+
+## CURRENT STATE (END OF SESSION)
+
+Infrastructure:
+
+- HD7-DC01: 10.0.0.10 — Healthy, AD DS + DNS fully functional
+- HD7-ADM01: 10.0.0.100 — Healthy, RSAT/GPMC functional, used as validation source
+- HD7-TEACH01: 10.0.0.50 — Healthy, domain-joined, GPOs enforcing correctly
+
+Directory:
+
+- Users: HD7-Teacher01, HD7-Teacher02, HD7-Teacher03 — intact
+- Groups: SG-HD7-Pilot-Users, SG-HD7-Production-Users — intact
+- OUs: HD7-Admins, HD7-Users, HD7-Workstations (Pilot/Production) — intact
+- GPOs: all 6 custom GPOs present, Enabled, correctly linked — intact
+
+Documentation:
+
+- HD7-Charter-v2.md created (original Charter preserved unchanged, per user preference)
+
+Validation Status:
+
+- Ping: PASS
+- nltest: PASS
+- gpupdate: PASS
+- Visual GPO/AD inventory: PASS (no drift)
+
+---
+
+## NEXT STEPS
+
+Phase 5 (Entra ID Hybrid Identity) — first real build step:
+
+1. Entra ID tenant setup
+2. Entra Connect installation and configuration
+3. Identity sync validation (confirm HD7-Teacher01 appears in Entra ID)
+4. Dual-environment authentication validation
+5. (Optional, later) Scoped/filtered sync validation using existing SG-HD7-Production-Users group
+
+---
+
+## SESSION SUMMARY
+
+First HD7 session since the Phase 4 pause (2026-05-18) for Germany relocation prep. Environment resumed with zero drift — every VM, user, group, OU, and GPO exactly as left. Domain triad re-validated clean from ADM01. Charter v2 finalized, locking in Entra-ID-first sequencing and deferring Intune + FS01 to HD8. Environment confirmed stable and ready for Phase 5 build work.
+
+This session reinforces the core HD7 principle that has held since Phase 0: boring, deterministic infrastructure age well.
+
+---
+
+## STATUS
+
+✅ Resume validation COMPLETE
+✅ Domain triad re-confirmed healthy
+✅ Charter v2 locked in
+🟢 Ready to begin Phase 5: Entra ID hybrid identity
