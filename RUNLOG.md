@@ -1926,3 +1926,121 @@ This session reinforces the core HD7 principle that has held since Phase 0: bori
 ✅ Domain triad re-confirmed healthy
 ✅ Charter v2 locked in
 🟢 Ready to begin Phase 5: Entra ID hybrid identity
+
+### 2026-07-22/23 — Phase 5 Continued: Entra ID Tenant Creation SUCCESS (+ Troubleshooting Detour)
+
+---
+
+## OBJECTIVE
+
+Begin Phase 5 (Entra ID hybrid identity) by:
+
+- Creating a dedicated, disposable Global Admin identity for the HD7 lab
+- Creating a new Microsoft Entra ID tenant, fully separate from any personal or work identity
+- Getting oriented in the Entra admin center (Users, Groups, Devices, Apps, Entra Connect status)
+
+---
+
+## ACTIONS TAKEN
+
+### 1. Dedicated Admin Identity Created
+
+- Created new Outlook.com account: `HaleDistrict7@outlook.com`
+- Rationale: fully disposable identity, isolated from personal/work Microsoft accounts, mirrors the "admin from workstation, not from DC" separation-of-concerns principle already established in HD7
+
+### 2. Accidental LWSD Tenant Exposure (Caught, No Action Taken)
+
+- First attempt to reach entra.microsoft.com auto-signed in via cached SSO to **dhale@lwsd.org** — the real, live LWSD production tenant (44,073 users, 49,345 groups)
+- Correctly stopped before making any changes; recognized this was not the lab tenant
+- Signed out, closed tab, resumed in a private window with the correct account
+- No changes made to LWSD's tenant; viewed Home dashboard only (read-only, no risk)
+- **Note:** LWSD account apparently has some baseline read access to their Entra dashboard — not investigated further, not relevant to HD7, and irrelevant now given upcoming Aug 3 resignation
+
+### 3. Entra ID Tenant Creation (SUCCESS)
+
+- Signed into entra.microsoft.com with `HaleDistrict7@outlook.com`
+- Tenant auto-created on first sign-in (no existing tenant for this identity)
+- **Tenant ID:** `f8cdef31-a31e-4b4a-93e4-5f571e91255a`
+- **Primary domain:** `f8cdef31-a31e-4b4a-93e4-5f571e91255a.onmicrosoft.com` (default, unrenamed — see Known Gaps)
+- Confirmed via dashboard: 0 users, 0 groups, 0 devices, 0 apps (expected — brand new tenant)
+- Confirmed: Microsoft Entra Connect status = Disabled, "Sync has never run" (expected — not yet configured)
+
+### 4. Browser/Token Troubleshooting Saga
+
+Encountered persistent "Interaction required" / AADSTS16000 errors when navigating most Entra admin center pages (Overview, Domain names via search, various blades).
+
+**Root cause identified:** Not a tenant problem. The Entra admin center's background recommendation/personalization widgets were failing to silently refresh tokens for a brand-new MSA-based Global Admin account — occurred across multiple browsers and devices (Safari/Mac, Chrome/Mac, Chrome/Windows), which ruled out device- or browser-specific causes (initially suspected Safari ITP, then extensions — both ruled out).
+
+**Resolution:** Clicking "Ignore" on the error dialog allowed continued use of the portal; the error was isolated to specific background widgets (notably the Home "Recommendations"/"My Feed" panel) and did not affect core tenant functionality, which worked correctly throughout (Tenant ID, Users, Groups, Devices, Apps all displayed and were navigable).
+
+### 5. Domain Rename — Abandoned (Not a Blocker)
+
+- Attempted to rename primary domain from the default `.onmicrosoft.com` GUID string to a readable name (e.g., `haledistricthd7.onmicrosoft.com`)
+- Hit a dead-end URL (incorrect/outdated blade route `DomainsListMenuBlade`, error code 404 — an AI-assistant navigation error, not a tenant or account issue)
+- **Decision: Abandoned the rename.** Cosmetic only — technically irrelevant to Entra Connect setup or hybrid identity functionality. Not worth further time investment.
+
+---
+
+## KEY LEARNINGS
+
+1. **Always verify which account/tenant is active before touching any admin panel**
+   - Cached SSO can silently authenticate into the wrong Microsoft tenant, especially on a device that's touched multiple Microsoft identities (personal, work, lab)
+   - Private/incognito windows are cheap insurance against this and should be the default for any new lab identity work going forward
+
+2. **"Interaction required" errors on brand-new tenants are often cosmetic, not structural**
+   - New MSA-based Global Admin accounts can trip background personalization/recommendation services in the Entra admin center
+   - Core tenant data and functionality (Users, Groups, Devices, Apps, Tenant ID) remained correct and accessible throughout — the errors were isolated to secondary UI widgets
+   - "Ignore" is a safe response when the underlying page content is still rendering correctly beneath the error
+
+3. **Not everything Microsoft surfaces is required**
+   - The "Activate/Buy" licensing page and Microsoft Learn profile prompts were unrelated upsells/tangents, not gates blocking lab progress
+   - Free tier is sufficient for Entra Connect + basic hybrid sync (the actual HD7-Core objective)
+
+4. **Cosmetic polish (domain rename) is deferrable — don't let it block real progress**
+   - Consistent with HD7's "one concept at a time" philosophy: the domain name is not part of the stated Charter success criteria and was correctly deprioritized once it started consuming disproportionate time
+
+---
+
+## CURRENT STATE (END OF SESSION)
+
+Identity:
+
+- Dedicated lab admin account created: `HaleDistrict7@outlook.com`
+
+Entra Tenant:
+
+- Tenant ID: `f8cdef31-a31e-4b4a-93e4-5f571e91255a`
+- Primary domain: default `.onmicrosoft.com` (unrenamed — deferred indefinitely, non-blocking)
+- Global Admin: HaleDistrict7@outlook.com (Dave Hale)
+- Users/Groups/Devices/Apps: 0 (expected, pre-Entra Connect)
+- Entra Connect: Disabled, sync never run (expected, not yet configured)
+
+No changes made to LWSD production tenant. No purchases made. No licensing upgrades needed for next phase.
+
+---
+
+## NEXT STEPS
+
+Phase 5 continued — Entra Connect installation:
+
+1. Decide install location: DC01 vs. a dedicated sync box (open question — worth deciding based on "keep DC01 clean" precedent already set with ADM01)
+2. Download and install Microsoft Entra Connect
+3. Run setup wizard using Express Settings (simplest path, consistent with "Corolla not BMW" philosophy)
+4. Validate initial sync: confirm HD7-Teacher01 appears in Entra ID
+5. Validate dual-environment authentication
+
+---
+
+## SESSION SUMMARY
+
+Productive session despite friction. Successfully created an isolated, disposable Entra ID tenant and admin identity for HD7, fully separate from LWSD and personal accounts. Navigated a real (but ultimately low-stakes) accidental sign-in into LWSD's production tenant without making any changes. Diagnosed and worked around a browser/token quirk affecting a new MSA-based Global Admin account. Made the deliberate call to abandon a cosmetic domain rename rather than let it consume further time. Tenant is confirmed live, correctly isolated, and ready for Entra Connect installation next session.
+
+---
+
+## STATUS
+
+✅ Dedicated lab identity created
+✅ Entra ID tenant created and verified isolated from LWSD/personal accounts
+✅ Tenant oriented (Users/Groups/Devices/Apps/Connect status all reviewed)
+🟡 Domain rename deferred indefinitely (non-blocking, cosmetic only)
+🟢 Ready for Entra Connect installation
