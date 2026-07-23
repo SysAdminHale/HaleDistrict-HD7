@@ -2044,3 +2044,106 @@ Productive session despite friction. Successfully created an isolated, disposabl
 ✅ Tenant oriented (Users/Groups/Devices/Apps/Connect status all reviewed)
 🟡 Domain rename deferred indefinitely (non-blocking, cosmetic only)
 🟢 Ready for Entra Connect installation
+
+## 2026-07-23 (Afternoon) — Phase 5 Continued: Entra Connect Installer Acquired (VM Networking + Portal Troubleshooting)
+
+OBJECTIVE
+Continue Phase 5 by:
+Restoring ADM01 domain connectivity after Session 1's tenant-creation work
+Downloading the Microsoft Entra Connect installer
+Getting the installer onto ADM01, ready to run next session
+
+---
+
+STARTING STATE
+ADM01 network adapter still on `HD7-Internal` (static, domain-connected) from prior sessions
+No internet access on ADM01 in that state — required for reaching the Entra Connect download
+
+---
+
+ACTIONS TAKEN
+
+1. ADM01 Temporarily Moved to Default Switch (Internet Access)
+   Switched ADM01's NIC (`Ethernet 3`) from `HD7-Internal` to `Default Switch` via Hyper-V Settings
+   Hit stale static IP config conflict (still holding `10.0.0.100`/`10.0.0.1`/`10.0.0.10` from domain setup) — adapter showed "Unidentified network"
+   Cleared static config and re-enabled DHCP:
+
+```powershell
+  Remove-NetIPAddress -InterfaceAlias "Ethernet 3" -Confirm:$false
+  Remove-NetRoute -InterfaceAlias "Ethernet 3" -Confirm:$false
+  Set-DnsClientServerAddress -InterfaceAlias "Ethernet 3" -ResetServerAddresses
+  Set-NetIPInterface -InterfaceAlias "Ethernet 3" -Dhcp Enabled
+```
+
+First DHCP attempt failed to APIPA (`169.254.x.x`, Tentative) — `Set-NetIPInterface -Dhcp Enabled` alone did not force a real lease
+Resolved with explicit release/renew:
+
+```powershell
+  ipconfig /release "Ethernet 3"
+  ipconfig /renew "Ethernet 3"
+```
+
+Result: real DHCP lease obtained (`172.29.224.101`, gateway/DNS `172.29.224.1`, `mshome.net` suffix — confirms Default Switch NAT network)
+Verified internet: `ping 8.8.8.8` and `ping google.com` — both 0% loss 2. Entra Connect Download — Multiple Dead Ends
+Attempted several paths to download the Entra Connect installer, all inside the ADM01 VM's browser:
+Classic Download Center link (`microsoft.com/.../details.aspx?id=47594`) — returned a file named `DecommissionDownloadCentre.pdf` instead of the installer
+Entra admin center → Home → "View Entra Connect" → "Get started" tab — informational only, no download link
+Entra admin center → "Connect Sync" blade (both via sidebar and direct URL) — repeatedly failed to load or threw a generic "Error occurred" with no further detail
+Direct blade URL construction (`DomainsListMenuBlade`, attempted for an unrelated domain-rename side-quest) — 404, incorrect/outdated route
+Recurring "Interaction required" / AADSTS16000 popup on multiple pages — same background-widget token issue identified in the prior session, worked around by clicking "Ignore" each time (core page content unaffected)
+`aka.ms/AADConnect` shortcut — redirected back into the Entra admin center's "Get started" page rather than a direct download
+Root cause investigation: Found explicit text on the Download Center page confirming Microsoft has discontinued distributing Entra Connect Sync there: "new versions of Entra Connect Sync are only available on the Microsoft Entra Connect blade" within the admin portal. This explained the PDF/decommission redirect — it was not a broken link but an intentionally retired one.
+Key diagnostic step: Tested whether VM overhead (Hyper-V Enhanced Session + nested rendering + NAT networking) was contributing to the Entra admin center's instability. Opened the same "Connect Sync" blade on the physical ThinkPad host (outside any VM) — page loaded instantly and cleanly, no errors. This confirmed the friction was VM-related rendering/latency, not a tenant, account, or licensing issue. 3. Successful Download (Host Machine) + Transfer to ADM01
+On the ThinkPad host (bare metal), navigated to Entra admin center → Connect → Manage tab → clicked "Download Connect Sync Agent" (correct button; distinct from "Download Provisioning agent," which is for Cloud Sync — the alternative already ruled out per Charter v2)
+Download succeeded immediately on host
+Copied installer (`AzureADConnect.msi`) from host into ADM01 VM via clipboard/file transfer — now sitting on ADM01's desktop, ready to run 4. ADM01 Restored to Domain Network
+Switched ADM01's NIC back to `HD7-Internal`
+Restored static config:
+
+```powershell
+  New-NetIPAddress -InterfaceAlias "Ethernet 3" -IPAddress 10.0.0.100 -PrefixLength 24 -DefaultGateway 10.0.0.1
+  Set-DnsClientServerAddress -InterfaceAlias "Ethernet 3" -ServerAddresses 10.0.0.10
+```
+
+Re-validated domain triad:
+`ping 10.0.0.10` → 0% loss
+`nltest /dsgetdc:haledistrict.local` → SUCCESS, full flag set (PDC, GC, DS, LDAP, KDC, WRITABLE, DNS_DC, DNS_DOMAIN, DNS_FOREST, etc.)
+
+---
+
+KEY LEARNINGS
+Microsoft has retired the classic Download Center distribution path for Entra Connect Sync — the in-portal "Connect Sync" blade (Manage tab → Download Connect Sync Agent) is now the only official source. Worth remembering for any future reinstall/upgrade.
+VM overhead can materially affect heavy single-page-app portals. The Entra admin center's instability inside ADM01's Hyper-V Enhanced Session was real and reproducible, and vanished entirely on bare metal. When a cloud admin portal misbehaves inside a nested/virtualized session, testing on the physical host is a fast, decisive diagnostic — cheaper than hours of in-VM troubleshooting.
+Reconfirmed the dual-network tension flagged back on 2026-05-04: ADM01 cannot have both internet and domain connectivity on a single NIC without manual switching. This session made the cost of that limitation concrete (multiple manual switches, one DHCP hiccup) rather than theoretical — reinforcing the case for a second NIC before the actual Entra Connect installation run.
+DHCP re-enablement isn't always sufficient on its own. `Set-NetIPInterface -Dhcp Enabled` can leave an adapter on APIPA; an explicit `ipconfig /release` + `/renew` forced the real lease. Worth remembering as the reliable sequence going forward.
+Paying for a higher Entra license tier would not have resolved any of today's issues. All friction traced to either a free-tier-irrelevant background widget bug or an intentional Microsoft distribution change — useful to have confirmed directly rather than left as a lingering doubt.
+
+---
+
+CURRENT STATE (END OF SESSION)
+ADM01: back on `HD7-Internal`, static IP restored (`10.0.0.100`), domain triad re-validated clean
+Entra Connect installer (`AzureADConnect.msi`) downloaded and confirmed present on ADM01's desktop, ready to run
+No changes made to DC01 or the Entra tenant itself this session — purely networking + installer acquisition
+
+---
+
+NEXT STEPS
+Add a second virtual NIC to ADM01 (Default Switch) so domain and internet connectivity are both live simultaneously — required for the installer/sync engine going forward
+Run the Entra Connect setup wizard (Express Settings)
+Sign in twice during wizard: on-prem (`haledistrict\administrator`) and Entra (`HaleDistrict7@outlook.com`)
+Validate initial sync: confirm HD7-Teacher01 appears in Entra ID
+Validate dual-environment authentication
+
+---
+
+SESSION SUMMARY
+A friction-heavy but ultimately successful session. Spent significant time diagnosing Entra admin center portal instability before discovering two real, useful facts: Microsoft has discontinued the classic Download Center path for Entra Connect, and the instability itself was substantially a VM-rendering issue rather than a tenant or account problem — confirmed by successfully loading and downloading from the physical host instead. Installer is now in hand and staged on ADM01. Dual-NIC setup identified as the clean next step before actually running the install, deferred to next session to avoid pushing a good diagnostic day into a tired, error-prone one.
+
+---
+
+STATUS
+✅ ADM01 domain connectivity restored and re-validated
+✅ Entra Connect installer downloaded and staged on ADM01
+✅ Root cause of portal instability identified (VM overhead + Microsoft's Download Center retirement)
+🟡 Second NIC (dual connectivity) — planned, not yet implemented
+🟢 Ready to run Entra Connect installer next session
