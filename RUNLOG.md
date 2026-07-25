@@ -2147,3 +2147,62 @@ STATUS
 ✅ Root cause of portal instability identified (VM overhead + Microsoft's Download Center retirement)
 🟡 Second NIC (dual connectivity) — planned, not yet implemented
 🟢 Ready to run Entra Connect installer next session
+
+## HD7 RUNLOG — 2026-07-24
+
+### Session: Entra ID Connect — Tenant Setup Attempt
+
+**Goal:** Install Azure AD Connect (Entra Connect) on HD7-ADM01 to sync
+HD7-DC01 (on-prem AD) → Entra ID tenant, as prerequisite for eventual
+Intune integration.
+
+**Completed:**
+
+- Confirmed HD7-ADM01's desktop installer = Azure AD Connect (sync
+  agent), distinct from Entra ID itself (cloud directory service, no
+  install required)
+- Diagnosed ADM01 egress failure: internal switch → RT01 → dead end
+  (RT01 not spun up in this HD7 build, intentional simplification)
+- Decision: move ADM01 network adapter from HD7-Internal → Default
+  Switch (bypasses RT01 for now; RT01/NAT-forwarding revisit is a
+  future option if internal routing realism matters later)
+- Created Entra ID tenant via entra.microsoft.com using
+  HaleDistrict7@outlook.com
+  - Tenant ID: f8cdef31-a31e-4b4a-93e4-5f571e91255a
+  - Primary domain: NOT YET CONFIRMED (portal kept displaying GUID,
+    never resolved actual .onmicrosoft.com name)
+
+**Blocked:**
+
+- Entra admin center on WindowsThinkPad throws persistent identity
+  conflict: "User account from identity provider 'live.com' does not
+  exist in tenant 'Microsoft Services'... needs to be added as
+  external user"
+- Root cause suspected: MSA-created tenant → browser session stuck
+  authenticating against consumer "Microsoft Services" tenant instead
+  of org tenant (f8cdef31...), OR tenant provisioning didn't fully
+  complete on the org-identity side
+- Same account also failed the ADM01-side Entra Connect installer
+  sign-in with a related "Pick an account" error
+- Home page loads fine (cached/stale data), but Users blade and other
+  Graph-token-dependent views fail consistently
+
+**Next session — try in this order:**
+
+1. Attempt entra.microsoft.com fresh from MacBook (never touched a
+   Microsoft login — clean token state, better test than clearing
+   cookies on ThinkPad)
+2. Sign in with HaleDistrict7@outlook.com, check if Users blade loads
+3. If MacBook works → session/token conflict confirmed, use MacBook
+   (or a clean browser profile) for Entra admin going forward
+4. If MacBook fails identically → tenant itself is broken; consider
+   recreating via Microsoft 365 Developer Program signup instead of
+   raw Entra tenant creation flow (built for lab/dev use, tends to
+   avoid the MSA/org-identity tangle)
+
+**Not yet done:** verify ADM01 adapter switch change took effect
+(ping 8.8.8.8 retest) — parked until tenant identity issue resolved,
+since no point running the installer without a working sign-in target.
+
+**Status:** HD7-ADM01, DC01, TEACH01 unaffected — this is purely a
+cloud-side identity snag, fully decoupled from VM state. Safe to pause.
