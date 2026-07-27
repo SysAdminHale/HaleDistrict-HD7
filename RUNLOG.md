@@ -2206,3 +2206,73 @@ since no point running the installer without a working sign-in target.
 
 **Status:** HD7-ADM01, DC01, TEACH01 unaffected — this is purely a
 cloud-side identity snag, fully decoupled from VM state. Safe to pause.
+
+HD7 RUNLOG — 2026-07-26
+Session: Entra ID Connect — Tenant Fixed, Networking Fixed, New Sign-In Blocker Found
+
+Context: Continuation from 2026-07-24/25 session, where the original Entra tenant (created via raw entra.microsoft.com signup with an MSA) was stuck in a broken "Microsoft Services" consumer-tenant identity trap.
+
+Root cause of yesterday's blocker — CONFIRMED:
+
+Microsoft 365 Developer Program (developer.microsoft.com) no longer offers free sandbox tenants to individual/personal-project signups. Confirmed via official FAQ: qualification now requires Visual Studio subscription, ISV/MAICPP partner status, or Premier/Unified Support contract. Dead end for solo lab use — do not revisit this path.
+
+Fix — new tenant created via Azure free account instead:
+
+Signed up at azure.microsoft.com/free using HaleDistrict7@outlook.com
+This flow properly provisions a real, working Entra ID tenant as part of signup (unlike the raw Entra portal tenant-creation flow, which is what got stuck yesterday)
+New tenant confirmed WORKING:
+Tenant ID: d3b074ee-2d51-4fe9-8a53-8c88503269b6
+Primary domain: HaleDistrict7outlook.onmicrosoft.com
+Users: 1 (Dave Hale, Global Administrator) — role assignment confirmed working, unlike yesterday's broken tenant
+License: Microsoft Entra ID Free
+$200 Azure credit active, no Dev Program qualification needed
+Company name used for Azure signup: "HaleDistrict" (not "HaleDistrict7") — chosen deliberately since this tenant is meant to be durable/reused across HD7, HD8, HD9, etc., not tied to a single build number
+
+Networking fixes completed today:
+
+HD7-ADM01: adapter moved to Default Switch (done previously); found stale static IP config (10.0.0.100/gateway 10.0.0.1 — leftovers from HD7-Internal) was blocking real DHCP. Fixed via:
+Set-NetIPInterface -InterfaceAlias "Ethernet 3" -Dhcp Enabled
+Set-DnsClientServerAddress -InterfaceAlias "Ethernet 3" -ResetServerAddresses
+ipconfig /release "Ethernet 3"
+ipconfig /renew "Ethernet 3"
+
+Result: real DHCP lease from Default Switch NAT (172.18.x.x), confirmed internet access via ping 8.8.8.8.
+
+HD7-DC01: adapter also moved to Default Switch. Since DC01 must keep serving internal AD/DNS on 10.0.0.10, did NOT switch to DHCP. Instead added a second static IP + forwarders, dual-stack approach:
+New-NetIPAddress -InterfaceAlias "Ethernet" -IPAddress 172.18.113.10 -PrefixLength 20
+(route to 172.18.112.1 gateway already existed from earlier New-NetRoute)
+Add-DnsServerForwarder -IPAddress 8.8.8.8,1.1.1.1
+
+Result: DC01 now has 10.0.0.10 (internal AD/DNS, unchanged) AND 172.18.113.10 (internet-facing). Confirmed: ping 8.8.8.8 works, nslookup login.microsoftonline.com resolves correctly.
+
+Entra Connect installer — progress today:
+
+Confirmed AADConnect requires Windows Server OS — will NOT run on ADM01 (client OS). Must run on DC01 (or a dedicated server VM in future builds).
+Copied installer to DC01, launched successfully, reached Express Settings screen without error (unlike yesterday's total tenant-identity failure)
+Chose Express Settings (yellow warning about haledistrict.local being non-routable is expected/normal — Express handles this automatically by remapping UPNs to the .onmicrosoft.com domain for cloud sign-in; fine for lab use)
+Worked through a chain of IE Enhanced Security Configuration issues blocking the embedded sign-in browser control on Windows Server:
+Trusted Sites popups for login.microsoftonline.com and aadcdn.msauth.net — added both
+JavaScript blocked error — fixed by disabling IE ESC entirely via Server Manager → Local Server → IE Enhanced Security Configuration → Off for both Administrators and Users
+Cookies blocked error — root cause was NOT Privacy tab settings or per-site cookie exceptions (both were already correctly configured)
+Fix: Security tab → Trusted Sites zone → Custom level → Reset to "Low" → Reset. This resolved the cookie blocking.
+
+Current blocker — NEW, distinct issue:
+
+After all IE/cookie fixes, sign-in form finally rendered properly, but got: "AADSTS50020: User account 'HaleDistrict7@outlook.com' from identity provider 'live.com' does not exist in tenant 'Microsoft Services'... needs to be added as external user"
+This is DIFFERENT from yesterday's issue (confirmed the same MSA account signs into the Entra/Azure portal in a browser just fine on this tenant) — this appears to be a known limitation where Azure AD Connect's embedded sign-in component doesn't reliably accept personal Microsoft accounts (MSAs) as tenant admin, even when that MSA IS a valid Global Administrator on the tenant.
+
+Next session — plan:
+
+Create a dedicated cloud-native admin account inside the tenant (e.g., "syncadmin@haledistrict7outlook.onmicrosoft.com") via Azure portal → Microsoft Entra ID → Users → New user
+Assign it the Global Administrator role
+Return to DC01's Entra Connect wizard, sign in with this new cloud-native account instead of the outlook.com MSA
+This should resolve the AADSTS50020 error since it won't be a consumer/MSA identity
+If successful: proceed through "Connect to AD DS" step (on-prem domain admin credentials for haledistrict.local), then Configure/ finish, then verify initial sync completes and Entra Connect status flips from "Not enabled" to active on the tenant Overview page
+
+Repeatability note (for future HD8/HD9/HD10 rebuilds):
+
+Tenant itself is durable — does NOT need to be recreated per HD build. Same tenant can be reused across future rebuilds.
+Entra Connect installation IS tied to DC01 and will need to be reinstalled/reconfigured each time DC01 is rebuilt. Estimated time once practiced: 10-15 minutes active work per install, plus initial sync time in background. Intentionally being added as a repeatable checklist item for DC01 rebuild runbook going forward, per Dave's request to build speed/confidence through repetition.
+IE ESC disabling and Trusted Sites cookie fix will likely need to be redone on each fresh DC01 build too, since these are OS-level defaults on a freshly promoted Windows Server DC.
+
+Status: Tenant, ADM01 networking, and DC01 networking are all now in a good, working state. Only remaining blocker is the MSA-vs-cloud- admin sign-in issue inside the Entra Connect wizard itself. Very close to a working sync — likely a 10-15 minute fix next session.
